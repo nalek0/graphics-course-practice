@@ -28,47 +28,29 @@ void glew_fail(std::string_view message, GLenum error)
     throw std::runtime_error(to_string(message) + reinterpret_cast<const char *>(glewGetErrorString(error)));
 }
 
-// const vec2 VERTICES[3] = vec2[3](
-//     vec2(0.0, 1.0),
-//     vec2(-sqrt(0.75), -0.5),
-//     vec2( sqrt(0.75), -0.5)
-// );
-
-// const vec2 VERTICES[8] = vec2[8](
-//     vec2(0.0, 0.0),
-//     vec2(0.0, 1.0),
-//     vec2(1.0, 0.5),
-//     vec2(1.0, -0.5),
-//     vec2(0.0, -1.0),
-//     vec2(-1.0, -0.5),
-//     vec2(-1.0, 0.5),
-//     vec2(0.0, 1.0)
-// );
-
-// const vec3 COLORS[8] = vec3[8](
-//     vec3(0.5, 0.5, 0.5),
-//     vec3(1.0, 0.0, 0.0),
-//     vec3(0.0, 1.0, 0.0),
-//     vec3(0.0, 0.0, 1.0),
-//     vec3(0.0, 1.0, 1.0),
-//     vec3(1.0, 0.0, 1.0),
-//     vec3(1.0, 1.0, 0.0),
-//     vec3(1.0, 0.0, 0.0)
-// );
-
 const char vertex_shader_source[] =
 R"(#version 330 core
 
-const vec2 VERTICES[3] = vec2[3](
+const vec2 VERTICES[8] = vec2[8](
+    vec2(0.0, 0.0),
     vec2(0.0, 1.0),
-    vec2(-sqrt(0.75), -0.5),
-    vec2( sqrt(0.75), -0.5)
+    vec2(sqrt(3.) / 2., 0.5),
+    vec2(sqrt(3.) / 2., -0.5),
+    vec2(0.0, -1.0),
+    vec2(-sqrt(3.) / 2., -0.5),
+    vec2(-sqrt(3.) / 2., 0.5),
+    vec2(0.0, 1.0)
 );
 
-const vec3 COLORS[3] = vec3[3](
+const vec3 COLORS[8] = vec3[8](
+    vec3(0.5, 0.5, 0.5),
     vec3(1.0, 0.0, 0.0),
     vec3(0.0, 1.0, 0.0),
-    vec3(0.0, 0.0, 1.0)
+    vec3(0.0, 0.0, 1.0),
+    vec3(0.0, 1.0, 1.0),
+    vec3(1.0, 0.0, 1.0),
+    vec3(1.0, 1.0, 0.0),
+    vec3(1.0, 0.0, 0.0)
 );
 
 out vec3 color;
@@ -181,7 +163,12 @@ int main() try
     std::unordered_map<SDL_Keycode, bool> key_down;
 
     auto last_frame_start = std::chrono::high_resolution_clock::now();
+    const float scale = 0.5f;
+    const float speed = 2.f;
+    const float R = 1.f;
     float time = 0.f;
+    float x = 0.0f;
+    float y = 0.0f;
     bool running = true;
     while (running)
     {
@@ -211,19 +198,30 @@ int main() try
             break;
 
         auto now = std::chrono::high_resolution_clock::now();
-        // float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_frame_start).count();
-        float dt = 0.016f;
+        float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_frame_start).count();
+        // float dt = 0.016f;
         last_frame_start = now;
         time += dt;
 
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
-        float scale = 0.5f;
-        float angle = time;
-        float x = 0.5f;
-        float y = 0.5f;
         float aspect_ratio = (float)(width) / (float)(height);
+        float angle = time;
+
+        if (key_down[SDLK_LEFT]) {
+            x -= dt * speed;
+        }
+        if (key_down[SDLK_RIGHT]) {
+            x += dt * speed;
+        }
+        if (key_down[SDLK_UP]) {
+            y += dt * speed;
+        }
+        if (key_down[SDLK_DOWN]) {
+            y -= dt * speed;
+        }
+
         float view[16] =
         {
             1.f / aspect_ratio, 0.f, 0.f, 0.f,
@@ -233,15 +231,15 @@ int main() try
         };
         float transform[16] =
         {
-            scale * cos(angle), -scale * sin(angle), 0.f, x * cos(angle) - y * sin(angle),
-            scale * sin(angle), scale * cos(angle), 0.f, x * sin(angle) + y * cos(angle),
+            scale * cos(angle), -scale * sin(angle), 0.f, R * cos(angle) + x,
+            scale * sin(angle), scale * cos(angle), 0.f, R * sin(angle) + y,
             0.f, 0.f, scale, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
         glUniformMatrix4fv(glGetUniformLocation(program, "view"), 1, GL_TRUE, view);
         glUniformMatrix4fv(glGetUniformLocation(program, "transform"), 1, GL_TRUE, transform);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 8);
 
         SDL_GL_SwapWindow(window);
     }
