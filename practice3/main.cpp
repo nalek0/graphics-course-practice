@@ -149,6 +149,7 @@ int main() try
 
     int width, height;
     SDL_GetWindowSize(window, &width, &height);
+    float fwidth = width, fheight = height;
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
     if (!gl_context)
@@ -173,9 +174,9 @@ int main() try
     const int N = 3;
     vertex buffered_vertexes[N] =
     {
-        vertex(vec2(0.0F, 0.0F), { 255, 0, 0, 1 }),
-        vertex(vec2(0.0F, 0.5F), { 0, 255, 0, 1 }),
-        vertex(vec2(0.5F, 0.0F), { 0, 0, 255, 1 })
+        vertex(vec2(fwidth / 2, fheight / 2), { 255, 0, 0, 1 }),
+        vertex(vec2(fwidth / 2, fheight / 4), { 0, 255, 0, 1 }),
+        vertex(vec2(fwidth * 3 / 4, fheight / 2), { 0, 0, 255, 1 })
     };
 
     // Gen vbo
@@ -256,9 +257,9 @@ int main() try
 
         float view[16] =
         {
-            1.f, 0.f, 0.f, 0.f,
-            0.f, 1.f, 0.f, 0.f,
-            0.f, 0.f, 1.f, 0.f,
+            2.f / fwidth, 0.f, 0.f, -1.f,
+            0.f, -2.f / fheight, 0.f, 1.f,
+            0.f, 0.f, 1.0, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
 
