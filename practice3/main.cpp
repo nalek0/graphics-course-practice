@@ -170,6 +170,23 @@ int main() try
 
     GLuint view_location = glGetUniformLocation(program, "view");
 
+    const int N = 3;
+    vertex buffered_vertexes[N] =
+    {
+        vertex(vec2(0, 0), { 255, 0, 0, 1 }),
+        vertex(vec2(0, 1), { 0, 255, 0, 1 }),
+        vertex(vec2(1, 0), { 0, 0, 255, 1 })
+    };
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertex), buffered_vertexes, GL_STATIC_DRAW);
+    
+    vertex debug_vertex[1];
+    glGetBufferSubData(GL_ARRAY_BUFFER, 1 * sizeof(vertex), sizeof(vertex), debug_vertex);
+    std::cout << "Got vertex: (" << debug_vertex[0].position.x << ", " << debug_vertex[0].position.y << ")\n";
+
     auto last_frame_start = std::chrono::high_resolution_clock::now();
 
     float time = 0.f;
