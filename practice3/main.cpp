@@ -173,19 +173,32 @@ int main() try
     const int N = 3;
     vertex buffered_vertexes[N] =
     {
-        vertex(vec2(0, 0), { 255, 0, 0, 1 }),
-        vertex(vec2(0, 1), { 0, 255, 0, 1 }),
-        vertex(vec2(1, 0), { 0, 0, 255, 1 })
+        vertex(vec2(0.0F, 0.0F), { 255, 0, 0, 1 }),
+        vertex(vec2(0.0F, 0.5F), { 0, 255, 0, 1 }),
+        vertex(vec2(0.5F, 0.0F), { 0, 0, 255, 1 })
     };
 
+    // Gen vbo
     GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertex), buffered_vertexes, GL_STATIC_DRAW);
     
+    // Debug:
     vertex debug_vertex[1];
     glGetBufferSubData(GL_ARRAY_BUFFER, 1 * sizeof(vertex), sizeof(vertex), debug_vertex);
     std::cout << "Got vertex: (" << debug_vertex[0].position.x << ", " << debug_vertex[0].position.y << ")\n";
+
+    // Gen vao
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0));
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(vertex), (void*)(8));
 
     auto last_frame_start = std::chrono::high_resolution_clock::now();
 
@@ -251,6 +264,8 @@ int main() try
 
         glUseProgram(program);
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         SDL_GL_SwapWindow(window);
     }
