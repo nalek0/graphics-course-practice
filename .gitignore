@@ -1,4 +1,1 @@
-*/build
-*/cmake-build-*
-*/CMakeLists.txt.user
-.idea
+*/.vscode/
