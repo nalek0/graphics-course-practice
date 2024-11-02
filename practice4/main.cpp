@@ -119,6 +119,12 @@ GLuint create_program(GLuint vertex_shader, GLuint fragment_shader)
     return result;
 }
 
+
+const float scale = 0.5f;
+const float near = 0.1f;
+const float far = 10.f;
+const float right = 0.1f;
+
 int main() try
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -172,14 +178,17 @@ int main() try
     obj_data bunny = parse_obj(project_root + "/bunny.obj");
 
     // Gen vao, vbo, ebo:
-    const int N = 2;
-    GLuint vao[N], vbo[N], ebo[N];
+    GLuint vao[3], vbo[3], ebo[3];
+
+    // Bunny parameters:
+    float bunny_offset_xs[3] = { 1.f, -1.f, -1.f };
+    float bunny_offset_ys[3] = { 0.75f, 0.75f, -0.75f };
 
     // VBO settings:
     const int position_index = 0;
     const int normal_index = 1;
 
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < 3; i++) {
         glGenVertexArrays(1, vao + i);
         glGenBuffers(1, vbo + i);
         glGenBuffers(1, ebo + i);
@@ -201,13 +210,6 @@ int main() try
 
     // Draw loop:
     auto last_frame_start = std::chrono::high_resolution_clock::now();
-
-    float scale = 0.5f;
-    float near = 0.1f;
-    float far = 10.f;
-    float right = 0.1f;
-    float aspect_ratio = ((float) width) / height;
-    float top = right / aspect_ratio;
 
     float time = 0.f;
     float bunny_x = 0.f;
@@ -244,12 +246,16 @@ int main() try
         if (!running)
             break;
 
+        // Frame properties:
         auto now = std::chrono::high_resolution_clock::now();
         float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_frame_start).count();
         last_frame_start = now;
         time += dt;
         float angle = time;
+        float aspect_ratio = ((float) width) / height;
+        float top = right / aspect_ratio;
 
+        // Buttons press check:
         if (button_down[SDLK_LEFT]) {
             bunny_x -= speed * dt;
         }
@@ -262,31 +268,31 @@ int main() try
         if (button_down[SDLK_DOWN]) {
             bunny_y -= speed * dt;
         }
-        
+
+        // Draw frame:
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
         glUseProgram(program);
 
-        float model1[16] =
-        {
-            cos(angle) * scale, 0.f, -sin(angle) * scale, 1.f,
-            0.f, 1.f * scale, 0.f, 0.75f,
-            sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
-            0.f, 0.f, 0.f, 1.f,
-        };
-        float model2[16] =
-        {
-            cos(angle) * scale, 0.f, -sin(angle) * scale, -1.f,
-            0.f, 1.f * scale, 0.f, -0.75f,
-            sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
-            0.f, 0.f, 0.f, 1.f,
-        };
-        float model3[16] =
-        {
-            cos(angle) * scale, 0.f, -sin(angle) * scale, -1.f,
-            0.f, 1.f * scale, 0.f, 0.75f,
-            sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
-            0.f, 0.f, 0.f, 1.f,
+        float models[3][16] = {
+            {
+                cos(angle) * scale, 0.f, -sin(angle) * scale, bunny_offset_xs[0] + bunny_x,
+                0.f, scale, 0.f, bunny_offset_ys[0] + bunny_y,
+                sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
+                0.f, 0.f, 0.f, 1.f
+            },
+            {
+                cos(angle) * scale, -sin(angle) * scale, 0.f, bunny_offset_xs[1] + bunny_x,
+                sin(angle) * scale, cos(angle) * scale, 0.f, bunny_offset_ys[1] + bunny_y,
+                0.f, 0.f, scale, 0.f,
+                0.f, 0.f, 0.f, 1.f
+            },
+            {
+                scale, 0.f, 0.f, bunny_offset_xs[2] + bunny_x,
+                0.f, cos(angle) * scale, -sin(angle) * scale, bunny_offset_ys[2] + bunny_y,
+                0.f, sin(angle) * scale, cos(angle) * scale, 0.f,
+                0.f, 0.f, 0.f, 1.f
+            }
         };
 
         float view[16] =
@@ -308,17 +314,11 @@ int main() try
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
         glUniformMatrix4fv(projection_location, 1, GL_TRUE, projection);
 
-        glUniformMatrix4fv(model_location, 1, GL_TRUE, model1);
-        glBindVertexArray(vao[0]);
-        glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
-
-        glUniformMatrix4fv(model_location, 1, GL_TRUE, model2);
-        glBindVertexArray(vao[1]);
-        glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
-
-        glUniformMatrix4fv(model_location, 1, GL_TRUE, model3);
-        glBindVertexArray(vao[2]);
-        glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
+        for (int i = 0; i < 3; i++) {
+            glUniformMatrix4fv(model_location, 1, GL_TRUE, models[i]);
+            glBindVertexArray(vao[i]);
+            glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
+        }
 
         SDL_GL_SwapWindow(window);
     }
