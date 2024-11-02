@@ -235,6 +235,14 @@ int main() try
         time += dt;
         float angle = time;
         float scale = 0.5f;
+        float near = 0.1f;
+        float far = 10.f;
+        float right = 0.1f;
+        float top = 0.1f;
+        float left = -right;
+        float bottom = -top;
+        float aspect_ratio = right / top;
+        float fov = atan(right / near);
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -256,10 +264,10 @@ int main() try
 
         float projection[16] =
         {
-            1.f, 0.f, 0.f, 0.f,
-            0.f, 1.f, 0.f, 0.f,
-            0.f, 0.f, 1.f, 0.f,
-            0.f, 0.f, 0.f, 1.f,
+            near / right, 0.f, 0.f, 0.f,
+            0.f, near / top, 0.f, 0.f,
+            0.f, 0.f, - (far + near) / (far - near), -2 * far * near / (far - near),
+            0.f, 0.f, -1.f, 0.f
         };
 
         glUseProgram(program);
