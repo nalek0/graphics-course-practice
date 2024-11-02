@@ -170,34 +170,31 @@ int main() try
 
     GLuint view_location = glGetUniformLocation(program, "view");
 
-    const int N = 3;
-    std::vector<vertex> buffered_vertexes =
-    {
-        // vertex(vec2(fwidth / 2, fheight / 2), { 255, 0, 0, 1 }),
-        // vertex(vec2(fwidth / 2, fheight / 4), { 0, 255, 0, 1 }),
-        // vertex(vec2(fwidth * 3 / 4, fheight / 2), { 0, 0, 255, 1 }),
-        // vertex(vec2(fwidth, fheight), { 0, 0, 255, 1 })
-    };
+    const int quality = 4;
+    std::vector<vertex> path_vertexes = {};
+    std::vector<vertex> bezier_vertexes = {};
 
     // Gen vbo
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, buffered_vertexes.size() * sizeof(vertex), buffered_vertexes.data(), GL_STATIC_DRAW);
-    
-    // Debug:
-    vertex debug_vertex[1];
-    glGetBufferSubData(GL_ARRAY_BUFFER, 1 * sizeof(vertex), sizeof(vertex), debug_vertex);
-    std::cout << "Got vertex: (" << debug_vertex[0].position.x << ", " << debug_vertex[0].position.y << ")\n";
+    GLuint vbo_path, vbo_bezier;
+    glGenBuffers(1, &vbo_path);
+    glGenBuffers(1, &vbo_bezier);
 
     // Gen vao
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    GLuint vao_path, vao_bezier;
+    glGenVertexArrays(1, &vao_path);    
+    glGenVertexArrays(1, &vao_bezier);
 
+    glBindVertexArray(vao_path);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_path);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(vertex), (void*)(8));
 
+    glBindVertexArray(vao_bezier);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_bezier);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(vertex), (void*)(8));
 
@@ -228,15 +225,33 @@ int main() try
                 float mouse_x = event.button.x;
                 float mouse_y = event.button.y;
                 vertex mouse_v = vertex(vec2(mouse_x, mouse_y), { 0, 0, 0, 1 });
-                buffered_vertexes.push_back(mouse_v);
-                glBindBuffer(GL_ARRAY_BUFFER, vbo);
-                glBufferData(GL_ARRAY_BUFFER, buffered_vertexes.size() * sizeof(vertex), buffered_vertexes.data(), GL_STATIC_DRAW);
+                path_vertexes.push_back(mouse_v);
+                bezier_vertexes = {};
+                
+                for (int i = 0; i < path_vertexes.size(); i++) {
+                    for (int j = 0; j < quality; j++) {
+                        int num = i * quality + j;
+                        int mnum = path_vertexes.size() * quality - 1;
+                        float t = ((float) num) / mnum;
+                        vec2 bez_point = bezier(path_vertexes, t);
+                        vertex bez_vertex = vertex(bez_point, { 255, 0, 0, 1 });
+                        bezier_vertexes.push_back(bez_vertex);
+                    }
+                }
+
+                glBindVertexArray(vao_path);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo_path);
+                glBufferData(GL_ARRAY_BUFFER, path_vertexes.size() * sizeof(vertex), path_vertexes.data(), GL_STATIC_DRAW);
+                
+                glBindVertexArray(vao_bezier);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo_bezier);
+                glBufferData(GL_ARRAY_BUFFER, bezier_vertexes.size() * sizeof(vertex), bezier_vertexes.data(), GL_STATIC_DRAW);
             }
             else if (event.button.button == SDL_BUTTON_RIGHT)
             {
-                buffered_vertexes.pop_back();
-                glBindBuffer(GL_ARRAY_BUFFER, vbo);
-                glBufferData(GL_ARRAY_BUFFER, buffered_vertexes.size() * sizeof(vertex), buffered_vertexes.data(), GL_STATIC_DRAW);
+                path_vertexes.pop_back();
+                glBindBuffer(GL_ARRAY_BUFFER, vbo_path);
+                glBufferData(GL_ARRAY_BUFFER, path_vertexes.size() * sizeof(vertex), path_vertexes.data(), GL_STATIC_DRAW);
             }
             break;
         case SDL_KEYDOWN:
@@ -271,11 +286,18 @@ int main() try
 
         glUseProgram(program);
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
-        glBindVertexArray(vao);
+        
+        glBindVertexArray(vao_path);
         glLineWidth(5.f);
         glPointSize(10);
-        glDrawArrays(GL_POINTS, 0, buffered_vertexes.size());
-        glDrawArrays(GL_LINE_STRIP, 0, buffered_vertexes.size());
+        glDrawArrays(GL_POINTS, 0, path_vertexes.size());
+        glDrawArrays(GL_LINE_STRIP, 0, path_vertexes.size());
+
+        glBindVertexArray(vao_bezier);
+        glLineWidth(2.5f);
+        glPointSize(3);
+        glDrawArrays(GL_POINTS, 0, bezier_vertexes.size());
+        glDrawArrays(GL_LINE_STRIP, 0, bezier_vertexes.size());
 
         SDL_GL_SwapWindow(window);
     }
