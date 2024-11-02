@@ -149,7 +149,6 @@ int main() try
 
     int width, height;
     SDL_GetWindowSize(window, &width, &height);
-    float fwidth = width, fheight = height;
 
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
     if (!gl_context)
@@ -172,18 +171,19 @@ int main() try
     GLuint view_location = glGetUniformLocation(program, "view");
 
     const int N = 3;
-    vertex buffered_vertexes[N] =
+    std::vector<vertex> buffered_vertexes =
     {
-        vertex(vec2(fwidth / 2, fheight / 2), { 255, 0, 0, 1 }),
-        vertex(vec2(fwidth / 2, fheight / 4), { 0, 255, 0, 1 }),
-        vertex(vec2(fwidth * 3 / 4, fheight / 2), { 0, 0, 255, 1 })
+        // vertex(vec2(fwidth / 2, fheight / 2), { 255, 0, 0, 1 }),
+        // vertex(vec2(fwidth / 2, fheight / 4), { 0, 255, 0, 1 }),
+        // vertex(vec2(fwidth * 3 / 4, fheight / 2), { 0, 0, 255, 1 }),
+        // vertex(vec2(fwidth, fheight), { 0, 0, 255, 1 })
     };
 
     // Gen vbo
     GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertex), buffered_vertexes, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, buffered_vertexes.size() * sizeof(vertex), buffered_vertexes.data(), GL_STATIC_DRAW);
     
     // Debug:
     vertex debug_vertex[1];
@@ -225,12 +225,18 @@ int main() try
         case SDL_MOUSEBUTTONDOWN:
             if (event.button.button == SDL_BUTTON_LEFT)
             {
-                int mouse_x = event.button.x;
-                int mouse_y = event.button.y;
+                float mouse_x = event.button.x;
+                float mouse_y = event.button.y;
+                vertex mouse_v = vertex(vec2(mouse_x, mouse_y), { 0, 0, 0, 1 });
+                buffered_vertexes.push_back(mouse_v);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBufferData(GL_ARRAY_BUFFER, buffered_vertexes.size() * sizeof(vertex), buffered_vertexes.data(), GL_STATIC_DRAW);
             }
             else if (event.button.button == SDL_BUTTON_RIGHT)
             {
-
+                buffered_vertexes.pop_back();
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBufferData(GL_ARRAY_BUFFER, buffered_vertexes.size() * sizeof(vertex), buffered_vertexes.data(), GL_STATIC_DRAW);
             }
             break;
         case SDL_KEYDOWN:
@@ -257,8 +263,8 @@ int main() try
 
         float view[16] =
         {
-            2.f / fwidth, 0.f, 0.f, -1.f,
-            0.f, -2.f / fheight, 0.f, 1.f,
+            2.f / ((float) width), 0.f, 0.f, -1.f,
+            0.f, -2.f / ((float) height), 0.f, 1.f,
             0.f, 0.f, 1.0, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
@@ -266,7 +272,8 @@ int main() try
         glUseProgram(program);
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glLineWidth(5.f);
+        glDrawArrays(GL_LINE_STRIP, 0, buffered_vertexes.size());
 
         SDL_GL_SwapWindow(window);
     }
