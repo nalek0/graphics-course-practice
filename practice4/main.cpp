@@ -158,6 +158,7 @@ int main() try
         throw std::runtime_error("OpenGL 3.3 is not supported");
 
     glClearColor(0.1f, 0.1f, 0.2f, 0.f);
+    glEnable(GL_DEPTH_TEST);
 
     auto vertex_shader = create_shader(GL_VERTEX_SHADER, vertex_shader_source);
     auto fragment_shader = create_shader(GL_FRAGMENT_SHADER, fragment_shader_source);
@@ -244,8 +245,8 @@ int main() try
         float left = -right;
         float bottom = -top;
         float fov = atan(right / near);
-
-        glClear(GL_COLOR_BUFFER_BIT);
+        
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
         float model[16] =
         {
@@ -259,7 +260,7 @@ int main() try
         {
             1.f, 0.f, 0.f, 0.f,
             0.f, 1.f, 0.f, 0.f,
-            0.f, 0.f, 1.f, 0.f,
+            0.f, 0.f, 1.f, -3.f,
             0.f, 0.f, 0.f, 1.f,
         };
 
