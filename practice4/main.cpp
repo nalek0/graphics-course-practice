@@ -199,6 +199,9 @@ int main() try
     auto last_frame_start = std::chrono::high_resolution_clock::now();
 
     float time = 0.f;
+    float bunny_x = 0.f;
+    float bunny_y = 0.f;
+    float speed = 1.f;
 
     std::map<SDL_Keycode, bool> button_down;
 
@@ -239,19 +242,31 @@ int main() try
         float near = 0.1f;
         float far = 10.f;
         float right = 0.1f;
-        // float aspect_ratio = right / top;
         float aspect_ratio = ((float) width) / height;
         float top = right / aspect_ratio;
         float left = -right;
         float bottom = -top;
         float fov = atan(right / near);
+
+        if (button_down[SDLK_LEFT]) {
+            bunny_x -= speed * dt;
+        }
+        if (button_down[SDLK_RIGHT]) {
+            bunny_x += speed * dt;
+        }
+        if (button_down[SDLK_UP]) {
+            bunny_y += speed * dt;
+        }
+        if (button_down[SDLK_DOWN]) {
+            bunny_y -= speed * dt;
+        }
         
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
         float model[16] =
         {
-            cos(angle) * scale, 0.f, -sin(angle) * scale, 0.f,
-            0.f, 1.f * scale, 0.f, 0.f,
+            cos(angle) * scale, 0.f, -sin(angle) * scale, bunny_x,
+            0.f, 1.f * scale, 0.f, bunny_y,
             sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
