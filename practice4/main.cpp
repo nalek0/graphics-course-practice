@@ -170,6 +170,31 @@ int main() try
     std::string project_root = PROJECT_ROOT;
     obj_data bunny = parse_obj(project_root + "/bunny.obj");
 
+    // Gen vao, vbo, ebo:
+    GLuint vao, vbo, ebo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
+
+    // VBO settings:
+    const int position_index = 0;
+    const int normal_index = 1;
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glEnableVertexAttribArray(position_index);
+    glEnableVertexAttribArray(normal_index);
+    glVertexAttribPointer(position_index, 3, GL_FLOAT, GL_FALSE, sizeof(obj_data::vertex), (void *)(0));
+    glVertexAttribPointer(normal_index, 3, GL_FLOAT, GL_FALSE, sizeof(obj_data::vertex), (void *)(sizeof(std::array<float, 3>)));
+
+    // Set up buffer data:
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, bunny.vertices.size() * sizeof(obj_data::vertex), bunny.vertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, bunny.indices.size() * sizeof(std::uint32_t), bunny.indices.data(), GL_STATIC_DRAW);
+
+    // Draw loop:
     auto last_frame_start = std::chrono::high_resolution_clock::now();
 
     float time = 0.f;
@@ -239,6 +264,9 @@ int main() try
         glUniformMatrix4fv(model_location, 1, GL_TRUE, model);
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
         glUniformMatrix4fv(projection_location, 1, GL_TRUE, projection);
+
+        glBindVertexArray(vao);
+        glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
 
         SDL_GL_SwapWindow(window);
     }
