@@ -238,10 +238,11 @@ int main() try
         float near = 0.1f;
         float far = 10.f;
         float right = 0.1f;
-        float top = 0.1f;
+        // float aspect_ratio = right / top;
+        float aspect_ratio = ((float) width) / height;
+        float top = right / aspect_ratio;
         float left = -right;
         float bottom = -top;
-        float aspect_ratio = right / top;
         float fov = atan(right / near);
 
         glClear(GL_COLOR_BUFFER_BIT);
