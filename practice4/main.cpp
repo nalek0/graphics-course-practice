@@ -233,14 +233,16 @@ int main() try
         float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_frame_start).count();
         last_frame_start = now;
         time += dt;
+        float angle = time;
+        float scale = 0.5f;
 
         glClear(GL_COLOR_BUFFER_BIT);
 
         float model[16] =
         {
-            1.f, 0.f, 0.f, 0.f,
-            0.f, 1.f, 0.f, 0.f,
-            0.f, 0.f, 1.f, 0.f,
+            cos(angle) * scale, 0.f, -sin(angle) * scale, 0.f,
+            0.f, 1.f * scale, 0.f, 0.f,
+            sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
 
