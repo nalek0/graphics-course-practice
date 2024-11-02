@@ -159,8 +159,6 @@ int main() try
 
     glClearColor(0.1f, 0.1f, 0.2f, 0.f);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
 
     auto vertex_shader = create_shader(GL_VERTEX_SHADER, vertex_shader_source);
     auto fragment_shader = create_shader(GL_FRAGMENT_SHADER, fragment_shader_source);
@@ -174,31 +172,42 @@ int main() try
     obj_data bunny = parse_obj(project_root + "/bunny.obj");
 
     // Gen vao, vbo, ebo:
-    GLuint vao, vbo, ebo;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glGenBuffers(1, &ebo);
+    const int N = 2;
+    GLuint vao[N], vbo[N], ebo[N];
 
     // VBO settings:
     const int position_index = 0;
     const int normal_index = 1;
 
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glEnableVertexAttribArray(position_index);
-    glEnableVertexAttribArray(normal_index);
-    glVertexAttribPointer(position_index, 3, GL_FLOAT, GL_FALSE, sizeof(obj_data::vertex), (void *)(0));
-    glVertexAttribPointer(normal_index, 3, GL_FLOAT, GL_FALSE, sizeof(obj_data::vertex), (void *)(sizeof(std::array<float, 3>)));
+    for (int i = 0; i < N; i++) {
+        glGenVertexArrays(1, vao + i);
+        glGenBuffers(1, vbo + i);
+        glGenBuffers(1, ebo + i);
 
-    // Set up buffer data:
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, bunny.vertices.size() * sizeof(obj_data::vertex), bunny.vertices.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, bunny.indices.size() * sizeof(std::uint32_t), bunny.indices.data(), GL_STATIC_DRAW);
+        glBindVertexArray(vao[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
+        glEnableVertexAttribArray(position_index);
+        glEnableVertexAttribArray(normal_index);
+        glVertexAttribPointer(position_index, 3, GL_FLOAT, GL_FALSE, sizeof(obj_data::vertex), (void *)(0));
+        glVertexAttribPointer(normal_index, 3, GL_FLOAT, GL_FALSE, sizeof(obj_data::vertex), (void *)(sizeof(std::array<float, 3>)));
+ 
+        // Set up buffer data:
+        glBindVertexArray(vao[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
+        glBufferData(GL_ARRAY_BUFFER, bunny.vertices.size() * sizeof(obj_data::vertex), bunny.vertices.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo[i]);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, bunny.indices.size() * sizeof(std::uint32_t), bunny.indices.data(), GL_STATIC_DRAW);
+    }
 
     // Draw loop:
     auto last_frame_start = std::chrono::high_resolution_clock::now();
+
+    float scale = 0.5f;
+    float near = 0.1f;
+    float far = 10.f;
+    float right = 0.1f;
+    float aspect_ratio = ((float) width) / height;
+    float top = right / aspect_ratio;
 
     float time = 0.f;
     float bunny_x = 0.f;
@@ -240,15 +249,6 @@ int main() try
         last_frame_start = now;
         time += dt;
         float angle = time;
-        float scale = 0.5f;
-        float near = 0.1f;
-        float far = 10.f;
-        float right = 0.1f;
-        float aspect_ratio = ((float) width) / height;
-        float top = right / aspect_ratio;
-        float left = -right;
-        float bottom = -top;
-        float fov = atan(right / near);
 
         if (button_down[SDLK_LEFT]) {
             bunny_x -= speed * dt;
@@ -265,10 +265,26 @@ int main() try
         
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
-        float model[16] =
+        glUseProgram(program);
+
+        float model1[16] =
         {
-            cos(angle) * scale, 0.f, -sin(angle) * scale, bunny_x,
-            0.f, 1.f * scale, 0.f, bunny_y,
+            cos(angle) * scale, 0.f, -sin(angle) * scale, 1.f,
+            0.f, 1.f * scale, 0.f, 0.75f,
+            sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
+            0.f, 0.f, 0.f, 1.f,
+        };
+        float model2[16] =
+        {
+            cos(angle) * scale, 0.f, -sin(angle) * scale, -1.f,
+            0.f, 1.f * scale, 0.f, -0.75f,
+            sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
+            0.f, 0.f, 0.f, 1.f,
+        };
+        float model3[16] =
+        {
+            cos(angle) * scale, 0.f, -sin(angle) * scale, -1.f,
+            0.f, 1.f * scale, 0.f, 0.75f,
             sin(angle) * scale, 0.f, cos(angle) * scale, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
@@ -289,12 +305,19 @@ int main() try
             0.f, 0.f, -1.f, 0.f
         };
 
-        glUseProgram(program);
-        glUniformMatrix4fv(model_location, 1, GL_TRUE, model);
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
         glUniformMatrix4fv(projection_location, 1, GL_TRUE, projection);
 
-        glBindVertexArray(vao);
+        glUniformMatrix4fv(model_location, 1, GL_TRUE, model1);
+        glBindVertexArray(vao[0]);
+        glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
+
+        glUniformMatrix4fv(model_location, 1, GL_TRUE, model2);
+        glBindVertexArray(vao[1]);
+        glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
+
+        glUniformMatrix4fv(model_location, 1, GL_TRUE, model3);
+        glBindVertexArray(vao[2]);
         glDrawElements(GL_TRIANGLES, bunny.indices.size(), GL_UNSIGNED_INT, (void *)(0));
 
         SDL_GL_SwapWindow(window);
