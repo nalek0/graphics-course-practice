@@ -273,6 +273,8 @@ int main() try
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
         glBindVertexArray(vao);
         glLineWidth(5.f);
+        glPointSize(10);
+        glDrawArrays(GL_POINTS, 0, buffered_vertexes.size());
         glDrawArrays(GL_LINE_STRIP, 0, buffered_vertexes.size());
 
         SDL_GL_SwapWindow(window);
