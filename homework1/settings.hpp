@@ -14,5 +14,5 @@ const float MIN_VALUE = -2.f;
 const float CHANGE_VALUE = 0.f;
 
 float f(const float x, const float y, const float t) {
-    return sin(PI * x + t) + cos(2 * PI * y + t);
+    return sin(2 * PI * x + t) + cos(PI * y * sin(t) * 3);
 }
