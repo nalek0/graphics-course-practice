@@ -9,13 +9,14 @@
 
 #include <string_view>
 #include <stdexcept>
+#include <algorithm>
 #include <iostream>
 #include <chrono>
 #include <vector>
 #include <map>
 
-#include "settings.cpp"
-#include "shaders.cpp"
+#include "settings.hpp"
+#include "shaders.hpp"
 
 std::string to_string(std::string_view str)
 {
@@ -69,6 +70,40 @@ GLuint create_program(GLuint vertex_shader, GLuint fragment_shader)
     }
 
     return result;
+}
+
+struct point {
+    std::array<float, 2> position;
+    std::array<float, 4> color;
+};
+
+struct table {
+    std::array<std::array<point, W + 1>, H + 1> points;
+};
+
+table makeTable(const float time) {
+    std::array<std::array<point, W + 1>, H + 1> points;
+    
+    for (int row = 0; row <= H; row++) {
+        for (int column = 0; column <= W; column++) {
+            std::array<float, 2> position = { 1.f * row / H, 1.f * column / W };
+            float value = f(position[0], position[1], time);
+            
+            if (value > CHANGE_VALUE) {
+                // Red color:
+                float red_value = std::min((value - CHANGE_VALUE) / (MAX_VALUE - CHANGE_VALUE), 1.f);
+                std::array<float, 4> color = { red_value, 0.f, 0.f, 1.f };
+                points[row][column] = { position, color };
+            } else {
+                // Blue color:
+                float blue_value = std::min((CHANGE_VALUE - value) / (CHANGE_VALUE - MIN_VALUE), 1.f);
+                std::array<float, 4> color = { 0.f, 0.f, blue_value, 1.f };
+                points[row][column] = { position, color };
+            }
+        }
+    }
+
+    return { points };
 }
 
 int main() try
@@ -159,6 +194,7 @@ int main() try
         float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_frame_start).count();
         last_frame_start = now;
         time += dt;
+        table tab = makeTable(time);
 
         glClear(GL_COLOR_BUFFER_BIT);
 
