@@ -159,7 +159,8 @@ void fillIsolinePointsTriangle(
     bool b_more = f(b.position[0], b.position[1], time) > value;
     bool c_more = f(c.position[0], c.position[1], time) > value;
 
-    if (a_more == b_more) { // (0,0,1), (1,1,0)
+    if (a_more == b_more && a_more == c_more) { // (0,0,0) (1,1,1)
+    } else if (a_more == b_more) { // (0,0,1), (1,1,0)
         point p1 = makeIsolinePoint(a, c, time, value);
         point p2 = makeIsolinePoint(b, c, time, value);
         std::uint32_t i1 = isolinePoints.size();
@@ -172,8 +173,8 @@ void fillIsolinePointsTriangle(
         point p1 = makeIsolinePoint(a, b, time, value);
         point p2 = makeIsolinePoint(c, b, time, value);
         std::uint32_t i1 = isolinePoints.size();
+        std::uint32_t i2 = isolinePoints.size() + 1;
         isolinePoints.push_back(p1);
-        std::uint32_t i2 = isolinePoints.size();
         isolinePoints.push_back(p2);
         isolineIndices.push_back(i1);
         isolineIndices.push_back(i2);
@@ -181,12 +182,11 @@ void fillIsolinePointsTriangle(
         point p1 = makeIsolinePoint(b, a, time, value);
         point p2 = makeIsolinePoint(c, a, time, value);
         std::uint32_t i1 = isolinePoints.size();
+        std::uint32_t i2 = isolinePoints.size() + 1;
         isolinePoints.push_back(p1);
-        std::uint32_t i2 = isolinePoints.size();
         isolinePoints.push_back(p2);
         isolineIndices.push_back(i1);
         isolineIndices.push_back(i2);
-    } else { // (0,0,0) (1,1,1)
     }
 }
 
@@ -197,6 +197,7 @@ void fillIsolinePoints(
     const float time,
     const float value
 ) {
+    int counter = 0;
     for (int row = 0; row < H; row++) {
         for (int col = 0; col < W; col++) {
             std::uint32_t lti = row * (W + 1) + col;              // left top index
@@ -214,7 +215,7 @@ void fillIsolinePoints(
             
             // Second triangle:
             // rti, lbi, rbi
-            // fillIsolinePointsTriangle(isolinePoints, isolineIndices, rti_point, lbi_point, rbi_point, time, value);
+            fillIsolinePointsTriangle(isolinePoints, isolineIndices, rti_point, lbi_point, rbi_point, time, value);
         }
     }
 }
@@ -272,21 +273,35 @@ int main() try
     std::map<SDL_Keycode, bool> button_down;
 
     // Init vao, vbo, ebo:
-    GLuint vao, vbo, ebo;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glGenBuffers(1, &ebo);
+    GLuint vao_function, vbo_function, ebo_function;
+    GLuint vao_isolines, vbo_isolines, ebo_isolines;
+    glGenVertexArrays(1, &vao_function);
+    glGenVertexArrays(1, &vao_isolines);
+    glGenBuffers(1, &vbo_function);
+    glGenBuffers(1, &vbo_isolines);
+    glGenBuffers(1, &ebo_function);
+    glGenBuffers(1, &ebo_isolines);
 
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBindVertexArray(vao_function);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_function);
     glEnableVertexAttribArray(0); // vec2 in_position
     glEnableVertexAttribArray(1); // vec4 in_color
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(point), (void *)(0));
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(point), (void *)(sizeof(std::array<float, 2>)));
 
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    
+    glBindVertexArray(vao_function);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_function);
+    glBindVertexArray(0);
+
+    glBindVertexArray(vao_isolines);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_isolines);
+    glEnableVertexAttribArray(0); // vec2 in_position
+    glEnableVertexAttribArray(1); // vec4 in_color
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(point), (void *)(0));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(point), (void *)(sizeof(std::array<float, 2>)));
+
+    glBindVertexArray(vao_isolines);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_isolines);
     glBindVertexArray(0);
 
     // Event loop:
@@ -325,21 +340,34 @@ int main() try
         std::array<point, (W + 1) * (H + 1)> points = makeTable(time);
         std::vector<std::uint32_t> indices = makeIndices();
 
+        glBindVertexArray(vao_function);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_function);
+        glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(point), points.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_function);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
+        glBindVertexArray(0);
+
         std::vector<point> isolinePoints = {};
         std::vector<std::uint32_t> isolineIndices = {};
-        fillIsolinePoints(isolinePoints, isolineIndices, points, time, 0.5);
+        fillIsolinePoints(isolinePoints, isolineIndices, points, time, 0.75f);
 
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(points), points.data(), GL_STATIC_DRAW);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
+        glBindVertexArray(vao_isolines);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo_isolines);
+        glBufferData(GL_ARRAY_BUFFER, isolinePoints.size() * sizeof(point), isolinePoints.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_isolines);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, isolineIndices.size() * sizeof(std::uint32_t), isolineIndices.data(), GL_STATIC_DRAW);
         glBindVertexArray(0);
 
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(program);
-        glBindVertexArray(vao);
+
+        glBindVertexArray(vao_function);
+        glPointSize(10);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, (void *)(0));
+
+        glBindVertexArray(vao_isolines);
+        glLineWidth(2);
+        glDrawElements(GL_LINES, isolineIndices.size(), GL_UNSIGNED_INT, (void *)(0));
 
         SDL_GL_SwapWindow(window);
     }
