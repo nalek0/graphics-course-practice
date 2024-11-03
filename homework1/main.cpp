@@ -87,13 +87,13 @@ std::array<point, (W + 1) * (H + 1)> makeTable(const float time) {
             
             if (value > CHANGE_VALUE) {
                 // Red color:
-                float red_value = std::min((value - CHANGE_VALUE) / (MAX_VALUE - CHANGE_VALUE), 1.f);
-                std::array<float, 4> color = { red_value, 0.f, 0.f, 1.f };
+                float rv = std::min((value - CHANGE_VALUE) / (MAX_VALUE - CHANGE_VALUE), 1.f);
+                std::array<float, 4> color = { 1.f, 1.f - rv, 1.f - rv, 1.f };
                 points[row * (W + 1)+ column] = { position, color };
             } else {
                 // Blue color:
-                float blue_value = std::min((CHANGE_VALUE - value) / (CHANGE_VALUE - MIN_VALUE), 1.f);
-                std::array<float, 4> color = { 0.f, 0.f, blue_value, 1.f };
+                float bv = std::min((CHANGE_VALUE - value) / (CHANGE_VALUE - MIN_VALUE), 1.f);
+                std::array<float, 4> color = { 1.f - bv, 1.f - bv, 1.f, 1.f };
                 points[row * (W + 1) + column] = { position, color };
             }
         }
