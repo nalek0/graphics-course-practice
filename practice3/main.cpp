@@ -126,6 +126,27 @@ vec2 bezier(std::vector<vertex> const & vertices, float t)
     return points[0];
 }
 
+void updateBezierArray(std::vector<vertex>& bezier_vertexes, std::vector<vertex> const & path_vertexes, int quality) {
+    bezier_vertexes = {};
+                
+    for (int i = 0; i < path_vertexes.size(); i++) {
+        for (int j = 0; j < quality; j++) {
+            int num = i * quality + j;
+            int mnum = path_vertexes.size() * quality - 1;
+            float t = ((float) num) / mnum;
+            vec2 bez_point = bezier(path_vertexes, t);
+            vertex bez_vertex = vertex(bez_point, { 255, 0, 0, 1 });
+            bezier_vertexes.push_back(bez_vertex);
+        }
+    }
+}
+
+void updateBuffer(GLuint vao, GLuint vbo, std::vector<vertex> const & vertexes) {
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertexes.size() * sizeof(vertex), vertexes.data(), GL_STATIC_DRAW);
+}
+
 int main() try
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -170,6 +191,34 @@ int main() try
 
     GLuint view_location = glGetUniformLocation(program, "view");
 
+    int quality = 4;
+    std::vector<vertex> path_vertexes = {};
+    std::vector<vertex> bezier_vertexes = {};
+
+    // Gen vbo
+    GLuint vbo_path, vbo_bezier;
+    glGenBuffers(1, &vbo_path);
+    glGenBuffers(1, &vbo_bezier);
+
+    // Gen vao
+    GLuint vao_path, vao_bezier;
+    glGenVertexArrays(1, &vao_path);    
+    glGenVertexArrays(1, &vao_bezier);
+
+    glBindVertexArray(vao_path);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_path);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(vertex), (void*)(8));
+
+    glBindVertexArray(vao_bezier);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_bezier);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)(0));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(vertex), (void*)(8));
+
     auto last_frame_start = std::chrono::high_resolution_clock::now();
 
     float time = 0.f;
@@ -194,22 +243,37 @@ int main() try
         case SDL_MOUSEBUTTONDOWN:
             if (event.button.button == SDL_BUTTON_LEFT)
             {
-                int mouse_x = event.button.x;
-                int mouse_y = event.button.y;
+                float mouse_x = event.button.x;
+                float mouse_y = event.button.y;
+                vertex mouse_v = vertex(vec2(mouse_x, mouse_y), { 0, 0, 0, 1 });
+                path_vertexes.push_back(mouse_v);
+
+                updateBezierArray(bezier_vertexes, path_vertexes, quality);
+                updateBuffer(vao_path, vbo_path, path_vertexes);
+                updateBuffer(vao_bezier, vbo_bezier, bezier_vertexes);
             }
             else if (event.button.button == SDL_BUTTON_RIGHT)
             {
-
+                path_vertexes.pop_back();
+                updateBezierArray(bezier_vertexes, path_vertexes, quality);
+                updateBuffer(vao_path, vbo_path, path_vertexes);
+                updateBuffer(vao_bezier, vbo_bezier, bezier_vertexes);
             }
             break;
         case SDL_KEYDOWN:
             if (event.key.keysym.sym == SDLK_LEFT)
             {
-
+                quality -= 1;
+                updateBezierArray(bezier_vertexes, path_vertexes, quality);
+                updateBuffer(vao_path, vbo_path, path_vertexes);
+                updateBuffer(vao_bezier, vbo_bezier, bezier_vertexes);
             }
             else if (event.key.keysym.sym == SDLK_RIGHT)
             {
-
+                quality += 1;
+                updateBezierArray(bezier_vertexes, path_vertexes, quality);
+                updateBuffer(vao_path, vbo_path, path_vertexes);
+                updateBuffer(vao_bezier, vbo_bezier, bezier_vertexes);
             }
             break;
         }
@@ -226,14 +290,26 @@ int main() try
 
         float view[16] =
         {
-            1.f, 0.f, 0.f, 0.f,
-            0.f, 1.f, 0.f, 0.f,
-            0.f, 0.f, 1.f, 0.f,
+            2.f / ((float) width), 0.f, 0.f, -1.f,
+            0.f, -2.f / ((float) height), 0.f, 1.f,
+            0.f, 0.f, 1.0, 0.f,
             0.f, 0.f, 0.f, 1.f,
         };
 
         glUseProgram(program);
         glUniformMatrix4fv(view_location, 1, GL_TRUE, view);
+        
+        glBindVertexArray(vao_path);
+        glLineWidth(5.f);
+        glPointSize(10);
+        glDrawArrays(GL_POINTS, 0, path_vertexes.size());
+        glDrawArrays(GL_LINE_STRIP, 0, path_vertexes.size());
+
+        glBindVertexArray(vao_bezier);
+        glLineWidth(2.5f);
+        glPointSize(2.5f);
+        glDrawArrays(GL_POINTS, 0, bezier_vertexes.size());
+        glDrawArrays(GL_LINE_STRIP, 0, bezier_vertexes.size());
 
         SDL_GL_SwapWindow(window);
     }
