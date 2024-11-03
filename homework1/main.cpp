@@ -125,6 +125,100 @@ std::vector<std::uint32_t> makeIndices() {
     return result;
 }
 
+point makeIsolinePoint(
+    const point a,
+    const point b,
+    const float time,
+    const float value
+) {
+    float a_value = f(a.position[0], a.position[1], time);
+    float b_value = f(b.position[0], b.position[1], time);
+    float dx = b.position[0] - a.position[0];
+    float dy = b.position[1] - a.position[1];
+    float multiplier = (value - a_value) / (b_value - a_value);
+
+    return {
+        {
+            a.position[0] + dx * multiplier,
+            a.position[1] + dy * multiplier
+        },
+        { 0.f, 0.f, 0.f, 1.f }
+    };
+}
+
+void fillIsolinePointsTriangle(
+    std::vector<point> & isolinePoints,
+    std::vector<std::uint32_t> & isolineIndices,
+    const point a,
+    const point b,
+    const point c,
+    const float time,
+    const float value
+) {
+    bool a_more = f(a.position[0], a.position[1], time) > value;
+    bool b_more = f(b.position[0], b.position[1], time) > value;
+    bool c_more = f(c.position[0], c.position[1], time) > value;
+
+    if (a_more == b_more) { // (0,0,1), (1,1,0)
+        point p1 = makeIsolinePoint(a, c, time, value);
+        point p2 = makeIsolinePoint(b, c, time, value);
+        std::uint32_t i1 = isolinePoints.size();
+        std::uint32_t i2 = isolinePoints.size() + 1;
+        isolinePoints.push_back(p1);
+        isolinePoints.push_back(p2);
+        isolineIndices.push_back(i1);
+        isolineIndices.push_back(i2);
+    } else if (a_more == c_more) { // (0,1,0), (1,0,1)
+        point p1 = makeIsolinePoint(a, b, time, value);
+        point p2 = makeIsolinePoint(c, b, time, value);
+        std::uint32_t i1 = isolinePoints.size();
+        isolinePoints.push_back(p1);
+        std::uint32_t i2 = isolinePoints.size();
+        isolinePoints.push_back(p2);
+        isolineIndices.push_back(i1);
+        isolineIndices.push_back(i2);
+    } else if (b_more == c_more) { // (1,0,0), (0,1,1)
+        point p1 = makeIsolinePoint(b, a, time, value);
+        point p2 = makeIsolinePoint(c, a, time, value);
+        std::uint32_t i1 = isolinePoints.size();
+        isolinePoints.push_back(p1);
+        std::uint32_t i2 = isolinePoints.size();
+        isolinePoints.push_back(p2);
+        isolineIndices.push_back(i1);
+        isolineIndices.push_back(i2);
+    } else { // (0,0,0) (1,1,1)
+    }
+}
+
+void fillIsolinePoints(
+    std::vector<point> & isolinePoints,
+    std::vector<std::uint32_t> & isolineIndices,
+    std::array<point, (W + 1) * (H + 1)> const & points,
+    const float time,
+    const float value
+) {
+    for (int row = 0; row < H; row++) {
+        for (int col = 0; col < W; col++) {
+            std::uint32_t lti = row * (W + 1) + col;              // left top index
+            std::uint32_t rti = (row + 1) * (W + 1) + col;        // right top index
+            std::uint32_t lbi = row * (W + 1) + (col + 1);        // left bottom index
+            std::uint32_t rbi = (row + 1) * (W + 1) + (col + 1);  // right bottom index
+            point lti_point = points[lti];
+            point rti_point = points[rti];
+            point lbi_point = points[lbi];
+            point rbi_point = points[rbi];
+
+            // First triangle:
+            // lti, lbi, rti
+            fillIsolinePointsTriangle(isolinePoints, isolineIndices, lti_point, lbi_point, rti_point, time, value);
+            
+            // Second triangle:
+            // rti, lbi, rbi
+            // fillIsolinePointsTriangle(isolinePoints, isolineIndices, rti_point, lbi_point, rbi_point, time, value);
+        }
+    }
+}
+
 int main() try
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -230,16 +324,10 @@ int main() try
         time += dt;
         std::array<point, (W + 1) * (H + 1)> points = makeTable(time);
         std::vector<std::uint32_t> indices = makeIndices();
-        // for (int i = 0; i < (W + 1) * (H + 1); i++) {
-        //     std::cout << ((int) points[i].position[0] * 10) << " " << ((int) points[i].position[1] * 10) << "\n";
-        // }
-        // for (int i = 0; i < indices.size(); i++) {
-        //     if (i % 3 == 0) {
-        //         std::cout << std::endl;
-        //     }
-        //     std::cout << indices[i] << " ";
-        // }
-        // exit(1);
+
+        std::vector<point> isolinePoints = {};
+        std::vector<std::uint32_t> isolineIndices = {};
+        fillIsolinePoints(isolinePoints, isolineIndices, points, time, 0.5);
 
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
