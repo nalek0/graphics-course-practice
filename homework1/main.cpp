@@ -19,6 +19,29 @@
 
 #include "settings.hpp"
 #include "shaders.hpp"
+#include "point.hpp"
+
+template <>
+struct std::hash<point_ref>
+{
+  std::size_t operator()(const point_ref& k) const
+  {
+    using std::size_t;
+    using std::hash;
+    using std::string;
+
+    // Compute individual hash values for first,
+    // second and third and combine them using XOR
+    // and bit shifting:
+
+    return ((hash<int>()(k.less_index) ^ (hash<int>()(k.more_index) << 1)) >> 1);
+  }
+};
+
+std::array<point, (W + 1) * (H + 1)> points;
+std::vector<std::uint32_t> indices;
+std::unordered_map<point_ref, indexed_point> isolinePointsMap;
+std::vector<std::uint32_t> isolineIndices;
 
 std::string to_string(std::string_view str)
 {
@@ -74,11 +97,6 @@ GLuint create_program(GLuint vertex_shader, GLuint fragment_shader)
     return result;
 }
 
-struct point {
-    std::array<float, 2> position;
-    std::array<float, 4> color;
-};
-
 std::array<point, (W + 1) * (H + 1)> makeTable(const float time) {
     std::array<point, (W + 1) * (H + 1)> points;
     
@@ -127,51 +145,18 @@ std::vector<std::uint32_t> makeIndices() {
     return result;
 }
 
-struct indexed_point {
-    int index;
-    point p;
-};
-
-struct point_ref {
-    int less_index;
-    int more_index;
-    
-    bool operator==(const point_ref &other) const {
-        return (less_index == other.less_index && more_index == other.more_index);
-    }
-};
-
-template <>
-struct std::hash<point_ref>
-{
-  std::size_t operator()(const point_ref& k) const
-  {
-    using std::size_t;
-    using std::hash;
-    using std::string;
-
-    // Compute individual hash values for first,
-    // second and third and combine them using XOR
-    // and bit shifting:
-
-    return ((hash<int>()(k.less_index)
-             ^ (hash<int>()(k.more_index) << 1)) >> 1);
-  }
-};
-
 int makeIsolinePoint(
-    std::unordered_map<point_ref, indexed_point> & isolinePoints,
-    const point a,
-    const point b,
     const int a_index,
     const int b_index,
     const float time,
     const float value
 ) {
+    point a = points[a_index];
+    point b = points[b_index];
     point_ref p_ref = { std::min(a_index, b_index), std::max(a_index, b_index) };
-    auto search = isolinePoints.find(p_ref);
+    auto search = isolinePointsMap.find(p_ref);
 
-    if (search != isolinePoints.end()) {
+    if (search != isolinePointsMap.end()) {
         return search->second.index;
     } else {
 
@@ -188,52 +173,47 @@ int makeIsolinePoint(
             { 0.f, 0.f, 0.f, 1.f }
         };
 
-        int result = isolinePoints.size();
-        isolinePoints[p_ref] = { result, p };
+        int result = isolinePointsMap.size();
+        isolinePointsMap[p_ref] = { result, p };
 
         return result;
     }
 }
 
 void fillIsolinePointsTriangle(
-    std::unordered_map<point_ref, indexed_point> & isolinePoints,
-    std::vector<std::uint32_t> & isolineIndices,
-    const point a,
-    const point b,
-    const point c,
     int a_index,
     int b_index,
     int c_index,
     const float time,
     const float value
 ) {
+    point a = points[a_index];
+    point b = points[b_index];
+    point c = points[c_index];
     bool a_more = f(a.position[0], a.position[1], time) > value;
     bool b_more = f(b.position[0], b.position[1], time) > value;
     bool c_more = f(c.position[0], c.position[1], time) > value;
 
     if (a_more == b_more && a_more == c_more) { // (0,0,0) (1,1,1)
     } else if (a_more == b_more) { // (0,0,1), (1,1,0)
-        std::uint32_t i1 = makeIsolinePoint(isolinePoints, a, c, a_index, c_index, time, value);
-        std::uint32_t i2 = makeIsolinePoint(isolinePoints, b, c, b_index, c_index, time, value);
+        std::uint32_t i1 = makeIsolinePoint(a_index, c_index, time, value);
+        std::uint32_t i2 = makeIsolinePoint(b_index, c_index, time, value);
         isolineIndices.push_back(i1);
         isolineIndices.push_back(i2);
     } else if (a_more == c_more) { // (0,1,0), (1,0,1)
-        std::uint32_t i1 = makeIsolinePoint(isolinePoints, a, b, a_index, b_index, time, value);
-        std::uint32_t i2 = makeIsolinePoint(isolinePoints, c, b, c_index, b_index, time, value);
+        std::uint32_t i1 = makeIsolinePoint(a_index, b_index, time, value);
+        std::uint32_t i2 = makeIsolinePoint(c_index, b_index, time, value);
         isolineIndices.push_back(i1);
         isolineIndices.push_back(i2);
     } else if (b_more == c_more) { // (1,0,0), (0,1,1)
-        std::uint32_t i1 = makeIsolinePoint(isolinePoints, b, a, b_index, a_index, time, value);
-        std::uint32_t i2 = makeIsolinePoint(isolinePoints, c, a, c_index, a_index, time, value);
+        std::uint32_t i1 = makeIsolinePoint(b_index, a_index, time, value);
+        std::uint32_t i2 = makeIsolinePoint(c_index, a_index, time, value);
         isolineIndices.push_back(i1);
         isolineIndices.push_back(i2);
     }
 }
 
 void fillIsolinePoints(
-    std::unordered_map<point_ref, indexed_point> & isolinePoints,
-    std::vector<std::uint32_t> & isolineIndices,
-    std::array<point, (W + 1) * (H + 1)> const & points,
     const float time,
     const float value
 ) {
@@ -252,11 +232,11 @@ void fillIsolinePoints(
 
             // First triangle:
             // lti, lbi, rti
-            fillIsolinePointsTriangle(isolinePoints, isolineIndices, lti_point, lbi_point, rti_point, lti, lbi, rti, time, value);
+            fillIsolinePointsTriangle(lti, lbi, rti, time, value);
             
             // Second triangle:
             // rti, lbi, rbi
-            fillIsolinePointsTriangle(isolinePoints, isolineIndices, rti_point, lbi_point, rbi_point, rti, lbi, rbi, time, value);
+            fillIsolinePointsTriangle(rti, lbi, rbi, time, value);
         }
     }
 }
@@ -378,8 +358,9 @@ int main() try
         float dt = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_frame_start).count();
         last_frame_start = now;
         time += dt;
-        std::array<point, (W + 1) * (H + 1)> points = makeTable(time);
-        std::vector<std::uint32_t> indices = makeIndices();
+        
+        points = makeTable(time);
+        indices = makeIndices();
 
         glBindVertexArray(vao_function);
         glBindBuffer(GL_ARRAY_BUFFER, vbo_function);
@@ -388,9 +369,9 @@ int main() try
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(std::uint32_t), indices.data(), GL_STATIC_DRAW);
         glBindVertexArray(0);
 
-        std::unordered_map<point_ref, indexed_point> isolinePointsMap = {};
-        std::vector<std::uint32_t> isolineIndices = {};
-        fillIsolinePoints(isolinePointsMap, isolineIndices, points, time, 0.75f);
+        isolinePointsMap = {};
+        isolineIndices = {};
+        fillIsolinePoints(time, 0.75f);
         std::vector<point> isolinePoints = std::vector<point>(isolinePointsMap.size());
         
         for (auto val : isolinePointsMap) {
